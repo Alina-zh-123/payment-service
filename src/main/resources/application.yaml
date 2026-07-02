@@ -1,3 +1,6 @@
+server:
+  port: 8084
+
 spring:
   application:
     name: payment-service
@@ -9,7 +12,7 @@ spring:
 
   random:
     service:
-      url: ${RANDOM_SERVICE_URL:http://localhost:8084}
+      url: ${RANDOM_SERVICE_URL:http://localhost:8080}
 
   cloud:
     openfeign:
@@ -17,7 +20,7 @@ spring:
         enabled: true
 
   kafka:
-    bootstrap-servers: kafka:9092
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
