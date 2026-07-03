@@ -11,6 +11,7 @@ import com.innowise.paymentservice.mapper.PaymentMapper;
 import com.innowise.paymentservice.repository.PaymentRepository;
 import com.innowise.paymentservice.service.PaymentService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Async;
@@ -29,9 +30,12 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentRepository paymentRepository;
     private final PaymentMapper paymentMapper;
     private final RandomClient randomClient;
-    @Lazy
-    private final PaymentServiceImpl self;
     private final KafkaTemplate<String, PaymentCompletedEvent> kafkaTemplate;
+    private final ApplicationContext context;
+
+    private PaymentService getSelf() {
+        return context.getBean(PaymentService.class);
+    }
 
     private Jwt getPrincipal() {
         return (Jwt) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -47,29 +51,33 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Async
-    public void processPayment(String id) throws InterruptedException {
-        Thread.sleep(5000);
+    public void processPayment(String id) {
+        try {
+            Thread.sleep(5000);
 
-        Payment payment = paymentRepository.findById(id)
-                .orElseThrow(() -> new PaymentException("Payment is not found!"));
-        Integer number = randomClient.getInteger();
+            Payment payment = paymentRepository.findById(id)
+                    .orElseThrow(() -> new PaymentException("Payment is not found!"));
+            Integer number = randomClient.getInteger();
 
-        if (number % 2 == 0) {
-            payment.setStatus(PaymentStatus.SUCCESS);
-        } else {
-            payment.setStatus(PaymentStatus.FAILED);
+            if (number % 2 == 0) {
+                payment.setStatus(PaymentStatus.SUCCESS);
+            } else {
+                payment.setStatus(PaymentStatus.FAILED);
+            }
+            paymentRepository.save(payment);
+
+            PaymentCompletedEvent event = new PaymentCompletedEvent(
+                    payment.getOrderId(),
+                    payment.getStatus().name()
+            );
+            kafkaTemplate.send("payment-events", event.getOrderId().toString(), event);
+        } catch (InterruptedException e) {
+            throw new PaymentException("Payment processing error!", e);
         }
-        paymentRepository.save(payment);
-
-        PaymentCompletedEvent event = new PaymentCompletedEvent(
-                payment.getOrderId(),
-                payment.getStatus().name()
-        );
-        kafkaTemplate.send("payment-events", event.getOrderId().toString(), event);
     }
 
     @Override
-    public PaymentDto createPayment(PaymentDto paymentDto) throws InterruptedException {
+    public PaymentDto createPayment(PaymentDto paymentDto) {
         Payment payment = paymentMapper.dtoToPayment(paymentDto);
 
         payment.setUserId(currentUserId());
@@ -78,7 +86,7 @@ public class PaymentServiceImpl implements PaymentService {
 
         Payment res = paymentRepository.save(payment);
 
-        self.processPayment(String.valueOf((res.getId())));
+        getSelf().processPayment(String.valueOf((res.getId())));
 
         return paymentMapper.paymentToDto(res);
     }
