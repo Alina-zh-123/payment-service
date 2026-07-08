@@ -1,0 +1,38 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: payment-service
+
+  data:
+    mongodb:
+      uri: ${MONGO_URI}
+      database: ${MONGO_DB}
+
+  random:
+    service:
+      url: ${RANDOM_SERVICE_URL:http://localhost:8080}
+
+  cloud:
+    openfeign:
+      circuitbreaker:
+        enabled: true
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://localhost:8081/auth/jwks
+
+mongock:
+  migration-scan-package: com.innowise.paymentservice.changelog
+
+jwt:
+  secret: ${JWT_SECRET}
