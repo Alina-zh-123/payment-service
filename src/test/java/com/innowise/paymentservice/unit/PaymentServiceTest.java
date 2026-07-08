@@ -9,6 +9,7 @@ import com.innowise.paymentservice.exception.PaymentException;
 import com.innowise.paymentservice.kafka.PaymentCompletedEvent;
 import com.innowise.paymentservice.mapper.PaymentMapper;
 import com.innowise.paymentservice.repository.PaymentRepository;
+import com.innowise.paymentservice.service.PaymentProcessor;
 import com.innowise.paymentservice.service.impl.PaymentServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,7 +42,7 @@ public class PaymentServiceTest {
     @Mock
     private RandomClient randomClient;
     @Mock
-    private PaymentServiceImpl self;
+    private PaymentProcessor paymentProcessor;
     @Mock
     private KafkaTemplate<String, PaymentCompletedEvent> kafkaTemplate;
 
@@ -113,7 +114,7 @@ public class PaymentServiceTest {
         when(paymentRepository.save(payment1)).thenReturn(payment1);
         when(paymentMapper.dtoToPayment(paymentDto1)).thenReturn(payment1);
         when(paymentMapper.paymentToDto(payment1)).thenReturn(paymentDto1);
-        doNothing().when(self).processPayment("1");
+        doNothing().when(paymentProcessor).processPayment("1");
 
         PaymentDto paymentDto = paymentService.createPayment(paymentDto1);
         assertEquals(paymentDto1, paymentDto);

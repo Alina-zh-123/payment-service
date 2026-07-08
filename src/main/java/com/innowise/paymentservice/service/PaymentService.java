@@ -7,7 +7,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public interface PaymentService {
-    void processPayment(String id);
     PaymentDto createPayment(PaymentDto paymentDto);
     PaymentDto getPaymentById(String id);
     List<PaymentDto> getPaymentsWithFilter(Long userId, Long orderId, String status);

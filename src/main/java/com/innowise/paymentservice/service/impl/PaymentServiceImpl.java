@@ -1,20 +1,15 @@
 package com.innowise.paymentservice.service.impl;
 
-import com.innowise.paymentservice.client.RandomClient;
 import com.innowise.paymentservice.dto.PaymentAmountDto;
 import com.innowise.paymentservice.dto.PaymentDto;
 import com.innowise.paymentservice.entity.Payment;
 import com.innowise.paymentservice.entity.PaymentStatus;
 import com.innowise.paymentservice.exception.PaymentException;
-import com.innowise.paymentservice.kafka.PaymentCompletedEvent;
 import com.innowise.paymentservice.mapper.PaymentMapper;
 import com.innowise.paymentservice.repository.PaymentRepository;
+import com.innowise.paymentservice.service.PaymentProcessor;
 import com.innowise.paymentservice.service.PaymentService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationContext;
-import org.springframework.context.annotation.Lazy;
-import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -29,13 +24,7 @@ import java.util.stream.Collectors;
 public class PaymentServiceImpl implements PaymentService {
     private final PaymentRepository paymentRepository;
     private final PaymentMapper paymentMapper;
-    private final RandomClient randomClient;
-    private final KafkaTemplate<String, PaymentCompletedEvent> kafkaTemplate;
-    private final ApplicationContext context;
-
-    private PaymentService getSelf() {
-        return context.getBean(PaymentService.class);
-    }
+    private final PaymentProcessor paymentProcessor;
 
     private Jwt getPrincipal() {
         return (Jwt) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -50,32 +39,6 @@ public class PaymentServiceImpl implements PaymentService {
         return "ADMIN".equals(role);
     }
 
-    @Async
-    public void processPayment(String id) {
-        try {
-            Thread.sleep(5000);
-
-            Payment payment = paymentRepository.findById(id)
-                    .orElseThrow(() -> new PaymentException("Payment is not found!"));
-            Integer number = randomClient.getInteger();
-
-            if (number % 2 == 0) {
-                payment.setStatus(PaymentStatus.SUCCESS);
-            } else {
-                payment.setStatus(PaymentStatus.FAILED);
-            }
-            paymentRepository.save(payment);
-
-            PaymentCompletedEvent event = new PaymentCompletedEvent(
-                    payment.getOrderId(),
-                    payment.getStatus().name()
-            );
-            kafkaTemplate.send("payment-events", event.getOrderId().toString(), event);
-        } catch (InterruptedException e) {
-            throw new PaymentException("Payment processing error!", e);
-        }
-    }
-
     @Override
     public PaymentDto createPayment(PaymentDto paymentDto) {
         Payment payment = paymentMapper.dtoToPayment(paymentDto);
@@ -86,7 +49,7 @@ public class PaymentServiceImpl implements PaymentService {
 
         Payment res = paymentRepository.save(payment);
 
-        getSelf().processPayment(String.valueOf((res.getId())));
+        paymentProcessor.processPayment(String.valueOf((res.getId())));
 
         return paymentMapper.paymentToDto(res);
     }

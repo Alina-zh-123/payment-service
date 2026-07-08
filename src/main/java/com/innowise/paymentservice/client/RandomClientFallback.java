@@ -6,8 +6,6 @@ import org.springframework.stereotype.Component;
 public class RandomClientFallback implements RandomClient {
     @Override
     public Integer getInteger() {
-        throw new IllegalStateException(
-                "Random service unavailable!"
-        );
+        return -1;
     }
 }
